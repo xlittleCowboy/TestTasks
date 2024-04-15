@@ -30,8 +30,19 @@ struct FNavigationNode
 
 	FNavigationNode() {}
 	FNavigationNode(const FVector& InLocation) : Location(InLocation) {}
+	FNavigationNode(float InF) : F(InF) {}
 
 	FORCEINLINE bool operator== (const FNavigationNode& OtherNode) const { return Location.Equals(OtherNode.Location, 10.0f); }
+
+	FORCEINLINE bool operator< (const FNavigationNode& OtherNode) const
+	{
+		if (FMath::IsNearlyEqual(F, OtherNode.F, 1.0f))
+		{
+			return H < OtherNode.H;
+		}
+		
+		return F < OtherNode.F;
+	}
 };
 
 /**
@@ -45,9 +56,6 @@ class TESTTASKS_API UAStarPathfinding : public UObject
 public:
 	UFUNCTION(BlueprintPure, Category="Pathfinding", meta = (WorldContext = "WorldContextObject"))
 	static TArray<FVector> GetPathPoints(const UObject* WorldContextObject, const FVector& FromLocation, const FVector& ToLocation, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize);
-
-	UFUNCTION(BlueprintPure, Category="Pathfinding")
-	static FNavigationNode GetNodeWithLowestFCost(const TArray<FNavigationNode>& Nodes, int32& Index);
 
 	UFUNCTION(BlueprintPure, Category="Pathfinding", meta = (WorldContext = "WorldContextObject"))
 	static TArray<FNavigationNode> GetNeighbourNodes(const UObject* WorldContextObject, const FNavigationNode& Node, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize);

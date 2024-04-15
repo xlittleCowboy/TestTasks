@@ -2,7 +2,6 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-// TODO: OPTIMIZE
 TArray<FVector> UAStarPathfinding::GetPathPoints(const UObject* WorldContextObject, const FVector& FromLocation, const FVector& ToLocation, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize)
 {
 	TArray<FNavigationNode> OpenNodes;
@@ -11,14 +10,13 @@ TArray<FVector> UAStarPathfinding::GetPathPoints(const UObject* WorldContextObje
 	const FNavigationNode StartNode = FNavigationNode(UKismetMathLibrary::Vector_SnappedToGrid(FromLocation, GridSize));
 	const FNavigationNode EndNode = FNavigationNode(GetValidEndLocation(WorldContextObject, ToLocation, ObstacleObjectTypes, GridSize));
 	
-	OpenNodes.Add(StartNode);
+	OpenNodes.HeapPush(StartNode);
 
 	while (OpenNodes.Num() > 0)
 	{
-		int32 CurrentNodeIndex = 0;
-		FNavigationNode CurrentNode = GetNodeWithLowestFCost(OpenNodes, CurrentNodeIndex);
+		FNavigationNode CurrentNode;
+		OpenNodes.HeapPop(CurrentNode);
 		
-		OpenNodes.RemoveAt(CurrentNodeIndex);
 		const int32 CurrentClosedNodeIndex = ClosedNodes.Add(CurrentNode);
 
 		if (CurrentNode == EndNode)
@@ -63,7 +61,7 @@ TArray<FVector> UAStarPathfinding::GetPathPoints(const UObject* WorldContextObje
 			return PathPoints;
 		}
 
-		for (const auto& Neighbour : GetNeighbourNodes(WorldContextObject, CurrentNode, ObstacleObjectTypes, GridSize))
+		for (auto& Neighbour : GetNeighbourNodes(WorldContextObject, CurrentNode, ObstacleObjectTypes, GridSize))
 		{
 			if (ClosedNodes.Find(Neighbour) >= 0)
 			{
@@ -77,38 +75,24 @@ TArray<FVector> UAStarPathfinding::GetPathPoints(const UObject* WorldContextObje
 			{
 				if (NeighbourOpenNodeIndex < 0)
 				{
-					NeighbourOpenNodeIndex = OpenNodes.Add(Neighbour);
+					Neighbour.G = NewGCostToNeighbour;
+					Neighbour.H = FVector::Distance(EndNode.Location, Neighbour.Location);
+					Neighbour.F = Neighbour.G + Neighbour.H;
+					Neighbour.ParentNodeIndex = CurrentClosedNodeIndex;
+					NeighbourOpenNodeIndex = OpenNodes.HeapPush(Neighbour);
 				}
-				
-				OpenNodes[NeighbourOpenNodeIndex].G = NewGCostToNeighbour;
-				OpenNodes[NeighbourOpenNodeIndex].H = FVector::Distance(EndNode.Location, Neighbour.Location);
-				OpenNodes[NeighbourOpenNodeIndex].F = Neighbour.G + Neighbour.H;
-				OpenNodes[NeighbourOpenNodeIndex].ParentNodeIndex = CurrentClosedNodeIndex;
+				else
+				{
+					OpenNodes[NeighbourOpenNodeIndex].G = NewGCostToNeighbour;
+					OpenNodes[NeighbourOpenNodeIndex].H = FVector::Distance(EndNode.Location, Neighbour.Location);
+					OpenNodes[NeighbourOpenNodeIndex].F = OpenNodes[NeighbourOpenNodeIndex].G + OpenNodes[NeighbourOpenNodeIndex].H;
+					OpenNodes[NeighbourOpenNodeIndex].ParentNodeIndex = CurrentClosedNodeIndex;
+				}
 			}
 		}
 	}
 	
 	return {};
-}
-
-FNavigationNode UAStarPathfinding::GetNodeWithLowestFCost(const TArray<FNavigationNode>& Nodes, int32& Index)
-{
-	if (Nodes.Num() <= 0)
-	{
-		return {};
-	}
-	
-	FNavigationNode LowestFCostNode = Nodes[0];
-	for (int32 i = 1; i < Nodes.Num(); i++)
-	{
-		if (Nodes[i].F < LowestFCostNode.F || (FMath::IsNearlyEqual(Nodes[i].F, LowestFCostNode.F, 0.1f) && Nodes[i].H < LowestFCostNode.H))
-		{
-			LowestFCostNode = Nodes[i];
-			Index = i;
-		}
-	}
-
-	return LowestFCostNode;
 }
 
 TArray<FNavigationNode> UAStarPathfinding::GetNeighbourNodes(const UObject* WorldContextObject, const FNavigationNode& Node, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, const float GridSize)

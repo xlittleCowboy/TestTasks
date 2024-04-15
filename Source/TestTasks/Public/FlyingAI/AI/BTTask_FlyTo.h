@@ -25,8 +25,6 @@ class TESTTASKS_API UBTTask_FlyTo : public UBTTaskNode
 	FVector EndLocation;
 	bool bDestinationReached = false;
 
-	FDelegateHandle BlackboardObserverDelegateHandle;
-
 	EBlackboardNotificationResult OnBlackboardValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID);
 
 protected:
@@ -35,7 +33,7 @@ protected:
 	
 	/** Grid size for path building. Should be > 10 */
 	UPROPERTY(EditAnywhere, Category="Flying AI", meta=(ClampMin=11.0f))
-	float PathGridSize = 50.0f;
+	float PathGridSize = 100.0f;
 
 	UPROPERTY(EditAnywhere, Category="Flying AI")
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObstacleObjectTypes;

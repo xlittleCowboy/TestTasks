@@ -69,15 +69,11 @@ EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 
 	if (bObserveBlackboardValue)
 	{
-		if (BlackboardObserverDelegateHandle.IsValid())
-		{
-			AIBlackboard->UnregisterObserver(TargetActorBlackboardKey.GetSelectedKeyID(), BlackboardObserverDelegateHandle);
-			AIBlackboard->UnregisterObserver(TargetLocationBlackboardKey.GetSelectedKeyID(), BlackboardObserverDelegateHandle);
-		}
+		AIBlackboard->UnregisterObserversFrom(this);
 		
-		BlackboardObserverDelegateHandle = AIBlackboard->RegisterObserver(TargetActorBlackboardKey.GetSelectedKeyID(),
+		AIBlackboard->RegisterObserver(TargetActorBlackboardKey.GetSelectedKeyID(),
 			this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTTask_FlyTo::OnBlackboardValueChange));
-		BlackboardObserverDelegateHandle = AIBlackboard->RegisterObserver(TargetLocationBlackboardKey.GetSelectedKeyID(),
+		AIBlackboard->RegisterObserver(TargetLocationBlackboardKey.GetSelectedKeyID(),
 			this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTTask_FlyTo::OnBlackboardValueChange));
 	}	
 	
@@ -146,7 +142,6 @@ EBlackboardNotificationResult UBTTask_FlyTo::OnBlackboardValueChange(const UBlac
 		return EBlackboardNotificationResult::RemoveObserver;
 	}
 
-	// TODO: When updating actor, this function gets called dozens of times, idk why
 	bool bUpdateMove = false;
 	FVector TargetEndLocation;
 	if (ChangedKeyID == TargetActorBlackboardKey.GetSelectedKeyID())

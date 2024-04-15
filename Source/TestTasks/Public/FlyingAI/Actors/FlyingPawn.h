@@ -36,7 +36,7 @@ protected:
 	 * FOR DEBUG PATH DRAWING ONLY! Actual value should be set in the FlyTo node in the behaviour tree. 
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying Pawn|Debug", meta=(ClampMin=11.0f, EditCondition="bDrawDebugPath", EditConditionHides="true"))
-	float PathGridSize = 50.0f;
+	float PathGridSize = 100.0f;
 
 	/** FOR DEBUG PATH DRAWING ONLY! Actual value should be set in the FlyTo node in the behaviour tree. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying Pawn|Debug", meta=(EditCondition="bDrawDebugPath", EditConditionHides="true"))
