@@ -1,37 +1,63 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BehaviorTree/Tasks/BTTask_BlackboardBase.h"
+#include "BehaviorTree/BTTaskNode.h"
 #include "BTTask_FlyTo.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class TESTTASKS_API UBTTask_FlyTo : public UBTTask_BlackboardBase
+class TESTTASKS_API UBTTask_FlyTo : public UBTTaskNode
 {
 	GENERATED_BODY()
 
+	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
+
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
+	void UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp);
 	void UpdateTargetLocation(const FVector& OwnerLocation);
 
 	FVector TargetLocation;
 	TArray<FVector> PathPoints;
+	
+	FVector EndLocation;
+	bool bDestinationReached = false;
+
+	FDelegateHandle BlackboardObserverDelegateHandle;
+
+	EBlackboardNotificationResult OnBlackboardValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID);
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
+	UPROPERTY(EditAnywhere, Category="Flying AI")
 	float AcceptanceRadius = 5.0f;
 	
 	/** Grid size for path building. Should be > 10 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI", meta=(ClampMin=11.0f))
+	UPROPERTY(EditAnywhere, Category="Flying AI", meta=(ClampMin=11.0f))
 	float PathGridSize = 50.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
+	UPROPERTY(EditAnywhere, Category="Flying AI")
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObstacleObjectTypes;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
+	UPROPERTY(EditAnywhere, Category="Flying AI")
 	float ToleranceForPathPointsComparison = 100.0f;
+
+	UPROPERTY(EditAnywhere, Category="Blackboard")
+	FBlackboardKeySelector TargetActorBlackboardKey;
+
+	UPROPERTY(EditAnywhere, Category="Blackboard")
+	FBlackboardKeySelector TargetLocationBlackboardKey;
+
+	/** If move goal in BB changes the move will be redirected to new location */
+	UPROPERTY(EditAnywhere, Category="Blackboard")
+	bool bObserveBlackboardValue = true;
+
+	/** If task is expected to react to changes to location represented by BB key 
+	 *	this property can be used to tweak sensitivity of the mechanism. Value is 
+	 *	recommended to be less than AcceptableRadius */
+	UPROPERTY(EditAnywhere, Category="Blackboard", meta = (ClampMin = "1", UIMin = "1", EditCondition="bObserveBlackboardValue", DisplayAfter="bObserveBlackboardValue"))
+	float ObservedBlackboardValueTolerance = 5.0f;
 
 public:
 	UBTTask_FlyTo();

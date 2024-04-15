@@ -2,6 +2,7 @@
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
 #include "FlyingAI/AI/AStarPathfinding.h"
 #include "GameFramework/PawnMovementComponent.h"
 
@@ -10,9 +11,24 @@ UBTTask_FlyTo::UBTTask_FlyTo()
 	NodeName = "Fly To";
 }
 
+void UBTTask_FlyTo::InitializeFromAsset(UBehaviorTree& Asset)
+{
+	Super::InitializeFromAsset(Asset);
+
+	if (const UBlackboardData* BBAsset = GetBlackboardAsset())
+	{
+		TargetActorBlackboardKey.ResolveSelectedKey(*BBAsset);
+		TargetLocationBlackboardKey.ResolveSelectedKey(*BBAsset);
+	}
+	else
+	{
+		UE_LOG(LogBehaviorTree, Warning, TEXT("Can't initialize task: %s, make sure that behavior tree specifies blackboard asset!"), *GetName());
+	}
+}
+
 EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	const UBlackboardComponent* AIBlackboard = OwnerComp.GetBlackboardComponent();
+	UBlackboardComponent* AIBlackboard = OwnerComp.GetBlackboardComponent();
 	const AAIController* AIController = OwnerComp.GetAIOwner();
 
 	if (!AIController || !AIBlackboard || !AIController->GetPawn())
@@ -24,43 +40,48 @@ EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 	auto* PawnMovementComponent = AIController->GetPawn()->GetComponentByClass<UPawnMovementComponent>();
 	if (!PawnMovementComponent)
 	{
-		UE_LOG(LogTemp, Fatal, TEXT("AI Fly To: Owner has no pawn movement component."))
+		UE_LOG(LogTemp, Warning, TEXT("AI Fly To: Owner has no pawn movement component."))
 		
 		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 		return EBTNodeResult::Failed;
 	}
 	
-	if (PathPoints.Num() <= 0)
+	if (PathPoints.Num() <= 0 && !bDestinationReached)
 	{
-		UObject* KeyValue = AIBlackboard->GetValue<UBlackboardKeyType_Object>(BlackboardKey.GetSelectedKeyID());
-		const AActor* TargetActor = Cast<AActor>(KeyValue);
-		if (!TargetActor)
-		{
-			UE_LOG(LogTemp, Fatal, TEXT("AI Fly To: Target actor is not set in blackboard."))
-			
-			FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
-			return EBTNodeResult::Failed;
-		}
-		
-		PathPoints = UAStarPathfinding::GetPathPoints(AIController, AIController->GetPawn()->GetActorLocation(),
-			TargetActor->GetActorLocation(), ObstacleObjectTypes, PathGridSize);
+		UpdatePathPoints(OwnerComp);
 
 		if (PathPoints.Num() <= 0)
 		{
-			UE_LOG(LogTemp, Fatal, TEXT("AI Fly To: No path points."))
+			UE_LOG(LogTemp, Warning, TEXT("AI Fly To: No path points."))
 			
 			FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 			return EBTNodeResult::Failed;
 		}
 
 		TargetLocation = PathPoints[0];
+		EndLocation = PathPoints[PathPoints.Num() - 1];
+		
 		PathPoints.RemoveAt(0);
 	}
 
 	UpdateTargetLocation(AIController->GetPawn()->GetActorLocation());
 	PawnMovementComponent->AddInputVector((TargetLocation - AIController->GetPawn()->GetActorLocation()).GetSafeNormal());
+
+	if (bObserveBlackboardValue)
+	{
+		if (BlackboardObserverDelegateHandle.IsValid())
+		{
+			AIBlackboard->UnregisterObserver(TargetActorBlackboardKey.GetSelectedKeyID(), BlackboardObserverDelegateHandle);
+			AIBlackboard->UnregisterObserver(TargetLocationBlackboardKey.GetSelectedKeyID(), BlackboardObserverDelegateHandle);
+		}
+		
+		BlackboardObserverDelegateHandle = AIBlackboard->RegisterObserver(TargetActorBlackboardKey.GetSelectedKeyID(),
+			this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTTask_FlyTo::OnBlackboardValueChange));
+		BlackboardObserverDelegateHandle = AIBlackboard->RegisterObserver(TargetLocationBlackboardKey.GetSelectedKeyID(),
+			this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTTask_FlyTo::OnBlackboardValueChange));
+	}	
 	
-	if (PathPoints.Num() <= 0 && AIController->GetPawn()->GetActorLocation().Equals(TargetLocation, AcceptanceRadius))
+	if (bDestinationReached)
 	{
 		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
 		return EBTNodeResult::Succeeded;
@@ -68,6 +89,33 @@ EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 	
 	FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
 	return EBTNodeResult::InProgress;
+}
+
+void UBTTask_FlyTo::UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp)
+{
+	const UBlackboardComponent* AIBlackboard = OwnerComp.GetBlackboardComponent();
+	const AAIController* AIController = OwnerComp.GetAIOwner();
+	
+	UObject* KeyValue = AIBlackboard->GetValue<UBlackboardKeyType_Object>(TargetActorBlackboardKey.SelectedKeyName);
+	AActor* TargetActor = Cast<AActor>(KeyValue);
+	if (!TargetActor && !AIBlackboard->IsVectorValueSet(TargetLocationBlackboardKey.SelectedKeyName))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AI Fly To: Target actor or target location is not set in the blackboard."))
+		return;
+	}
+
+	if (TargetActor)
+	{
+		PathPoints = UAStarPathfinding::GetPathPoints(AIController, AIController->GetPawn()->GetActorLocation(),
+			TargetActor->GetActorLocation(), ObstacleObjectTypes, PathGridSize);
+	}
+	else
+	{
+		const FVector TargetEndLocation = AIBlackboard->GetValue<UBlackboardKeyType_Vector>(TargetLocationBlackboardKey.SelectedKeyName);
+
+		PathPoints = UAStarPathfinding::GetPathPoints(AIController, AIController->GetPawn()->GetActorLocation(),
+	TargetEndLocation, ObstacleObjectTypes, PathGridSize);
+	}
 }
 
 void UBTTask_FlyTo::UpdateTargetLocation(const FVector& OwnerLocation)
@@ -81,5 +129,56 @@ void UBTTask_FlyTo::UpdateTargetLocation(const FVector& OwnerLocation)
 	{
 		TargetLocation = PathPoints[0];
 		PathPoints.RemoveAt(0);
+
+		if (PathPoints.Num() <= 0)
+		{
+			bDestinationReached = true;
+		}
 	}
+}
+
+EBlackboardNotificationResult UBTTask_FlyTo::OnBlackboardValueChange(const UBlackboardComponent& Blackboard,
+	FBlackboard::FKey ChangedKeyID)
+{
+	const UBehaviorTreeComponent* BehaviorComp = Cast<UBehaviorTreeComponent>(Blackboard.GetBrainComponent());
+	if (!BehaviorComp)
+	{
+		return EBlackboardNotificationResult::RemoveObserver;
+	}
+
+	// TODO: When updating actor, this function gets called dozens of times, idk why
+	bool bUpdateMove = false;
+	FVector TargetEndLocation;
+	if (ChangedKeyID == TargetActorBlackboardKey.GetSelectedKeyID())
+	{
+		UObject* KeyValue = Blackboard.GetValue<UBlackboardKeyType_Object>(TargetActorBlackboardKey.SelectedKeyName);
+		if (const AActor* TargetActor = Cast<AActor>(KeyValue))
+		{
+			TargetEndLocation = TargetActor->GetActorLocation();
+			bUpdateMove = FVector::DistSquared(EndLocation, TargetEndLocation) > FMath::Square(ObservedBlackboardValueTolerance);
+		}
+	}
+	if (ChangedKeyID == TargetLocationBlackboardKey.GetSelectedKeyID())
+	{
+		TargetEndLocation = Blackboard.GetValue<UBlackboardKeyType_Vector>(TargetLocationBlackboardKey.SelectedKeyName);
+		bUpdateMove = FVector::DistSquared(EndLocation, TargetEndLocation) > FMath::Square(ObservedBlackboardValueTolerance);
+	}
+
+	if (bUpdateMove && BehaviorComp->GetAIOwner())
+	{
+		PathPoints = UAStarPathfinding::GetPathPoints(BehaviorComp->GetAIOwner(), BehaviorComp->GetAIOwner()->GetPawn()->GetActorLocation(),
+	TargetEndLocation, ObstacleObjectTypes, PathGridSize);
+
+		if (PathPoints.Num() > 0)
+		{
+			TargetLocation = PathPoints[0];
+			EndLocation = TargetEndLocation;
+
+			PathPoints.RemoveAt(0);
+
+			bDestinationReached = false;
+		}
+	}
+	
+	return EBlackboardNotificationResult::ContinueObserving;
 }

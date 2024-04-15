@@ -2,6 +2,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
+// TODO: OPTIMIZE
 TArray<FVector> UAStarPathfinding::GetPathPoints(const UObject* WorldContextObject, const FVector& FromLocation, const FVector& ToLocation, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize)
 {
 	TArray<FNavigationNode> OpenNodes;

@@ -17,9 +17,24 @@ protected:
 	UBlackboardData* FlyingAIBlackboard;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
-	UBehaviorTree* FlyingAIBehaviourTree;
+	FName TargetActorBlackboardKeyName = "TargetActor";
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
+	FName TargetLocationBlackboardKeyName = "TargetLocation";
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
+	UBehaviorTree* FlyingAIBehaviorTree;
 
 public:
 	UFUNCTION(BlueprintCallable, Category="Flying AI")
-	bool FlyTo(AActor* TargetActor);
+	bool FlyToActor(AActor* TargetActor);
+
+	UFUNCTION(BlueprintCallable, Category="Flying AI")
+	bool FlyToLocation(const FVector& TargetLocation);
+
+	UFUNCTION(BlueprintCallable, Category="Flying AI")
+	bool UpdateFlyToActor(AActor* TargetActor);
+
+	UFUNCTION(BlueprintCallable, Category="Flying AI")
+	bool UpdateFlyToLocation(const FVector& TargetLocation);
 };

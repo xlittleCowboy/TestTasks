@@ -16,10 +16,18 @@ protected:
 	UFloatingPawnMovement* FloatingPawnMovement;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying Pawn")
-	bool bFlyToTargetActorOnBeginPlay = true;
-	
+	bool bFlyToTargetOnBeginPlay = true;
+
+	/** If TargetActor is not set, then pawn will fly to the TargetLocation. */
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Flying Pawn")
 	AActor* TargetActor = nullptr;
+
+	/** If TargetActor is not set, then pawn will fly to the TargetLocation. */
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Flying Pawn", meta=(EditCondition="TargetActor == nullptr", EditConditionHides="true"))
+	FVector TargetLocation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying Pawn")
+	float RotationAlpha = 0.1f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying Pawn|Debug")
 	bool bDrawDebugPath = false;
@@ -42,4 +50,6 @@ public:
 	AFlyingPawn();
 	
 	virtual void OnConstruction(const FTransform& Transform) override;
+
+	virtual void Tick(float DeltaSeconds) override;
 };

@@ -1,7 +1,7 @@
 #include "FlyingAI/AI/FlyingAIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-bool AFlyingAIController::FlyTo(AActor* TargetActor)
+bool AFlyingAIController::FlyToActor(AActor* TargetActor)
 {
 	if (!TargetActor)
 	{
@@ -16,7 +16,46 @@ bool AFlyingAIController::FlyTo(AActor* TargetActor)
 		return false;
 	}
 	
-	BlackboardComponent->SetValueAsObject("TargetActor", TargetActor);
+	BlackboardComponent->SetValueAsObject(TargetActorBlackboardKeyName, TargetActor);
+
+	return RunBehaviorTree(FlyingAIBehaviorTree);
+}
+
+bool AFlyingAIController::FlyToLocation(const FVector& TargetLocation)
+{
+	UBlackboardComponent* BlackboardComponent;
+	UseBlackboard(FlyingAIBlackboard, BlackboardComponent);
+
+	if (!BlackboardComponent)
+	{
+		return false;
+	}
 	
-	return RunBehaviorTree(FlyingAIBehaviourTree);
+	BlackboardComponent->SetValueAsVector(TargetLocationBlackboardKeyName, TargetLocation);
+	
+	return RunBehaviorTree(FlyingAIBehaviorTree);
+}
+
+bool AFlyingAIController::UpdateFlyToActor(AActor* TargetActor)
+{
+	if (GetBlackboardComponent())
+	{
+		GetBlackboardComponent()->SetValueAsObject(TargetActorBlackboardKeyName, TargetActor);
+
+		return true;
+	}
+
+	return false;
+}
+
+bool AFlyingAIController::UpdateFlyToLocation(const FVector& TargetLocation)
+{
+	if (GetBlackboardComponent())
+	{
+		GetBlackboardComponent()->SetValueAsVector(TargetLocationBlackboardKeyName, TargetLocation);
+
+		return true;
+	}
+
+	return false;
 }
