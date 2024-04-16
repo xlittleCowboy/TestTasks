@@ -15,6 +15,8 @@ bool AFlyingAIController::FlyToActor(AActor* TargetActor)
 	{
 		return false;
 	}
+
+	OnTargetActorChanged.Broadcast(TargetActor);
 	
 	BlackboardComponent->SetValueAsObject(TargetActorBlackboardKeyName, TargetActor);
 
@@ -31,6 +33,8 @@ bool AFlyingAIController::FlyToLocation(const FVector& TargetLocation)
 		return false;
 	}
 	
+	OnTargetLocationChanged.Broadcast(TargetLocation);
+	
 	BlackboardComponent->SetValueAsVector(TargetLocationBlackboardKeyName, TargetLocation);
 	
 	return RunBehaviorTree(FlyingAIBehaviorTree);
@@ -40,6 +44,8 @@ bool AFlyingAIController::UpdateFlyToActor(AActor* TargetActor)
 {
 	if (GetBlackboardComponent())
 	{
+		OnTargetActorChanged.Broadcast(TargetActor);
+		
 		GetBlackboardComponent()->SetValueAsObject(TargetActorBlackboardKeyName, TargetActor);
 
 		return true;
@@ -52,6 +58,8 @@ bool AFlyingAIController::UpdateFlyToLocation(const FVector& TargetLocation)
 {
 	if (GetBlackboardComponent())
 	{
+		OnTargetLocationChanged.Broadcast(TargetLocation);
+		
 		GetBlackboardComponent()->SetValueAsVector(TargetLocationBlackboardKeyName, TargetLocation);
 
 		return true;

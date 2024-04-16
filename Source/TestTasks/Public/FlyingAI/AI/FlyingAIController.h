@@ -4,6 +4,9 @@
 #include "AIController.h"
 #include "FlyingAIController.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTargetActorChangedDelegate, AActor*, NewActor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTargetLocationChangedDelegate, FVector, NewLocation);
+
 /**
  * 
  */
@@ -37,4 +40,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Flying AI")
 	bool UpdateFlyToLocation(const FVector& TargetLocation);
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTargetActorChangedDelegate OnTargetActorChanged;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTargetLocationChangedDelegate OnTargetLocationChanged;
 };

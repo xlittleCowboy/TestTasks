@@ -1,14 +1,45 @@
 ﻿#include "FlyingAI/Actors/FlyingPawn.h"
-#include "FlyingAI/AI/AStarPathfinding.h"
 #include "FlyingAI/AI/FlyingAIController.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Net/UnrealNetwork.h"
 
 AFlyingPawn::AFlyingPawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
 	FloatingPawnMovement = CreateDefaultSubobject<UFloatingPawnMovement>("Floating Pawn Movement");
+}
+
+void AFlyingPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AFlyingPawn, TargetActor);
+	DOREPLIFETIME(AFlyingPawn, TargetLocation);
+}
+
+void AFlyingPawn::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		if (auto* FlyingAIController = Cast<AFlyingAIController>(GetController()); FlyingAIController && bFlyToTargetOnBeginPlay)
+		{
+			FlyingAIController->OnTargetActorChanged.AddDynamic(this, &AFlyingPawn::OnTargetActorChangedCallback);
+			FlyingAIController->OnTargetLocationChanged.AddDynamic(this, &AFlyingPawn::OnTargetLocationChangedCallback);
+			
+			if (TargetActor)
+			{
+				FlyingAIController->FlyToActor(TargetActor);
+			}
+			else
+			{
+				FlyingAIController->FlyToLocation(TargetLocation);
+			}
+		}
+	}
 }
 
 void AFlyingPawn::Tick(float DeltaSeconds)
@@ -24,24 +55,24 @@ void AFlyingPawn::Tick(float DeltaSeconds)
 	}
 }
 
-void AFlyingPawn::OnPathPointsFound(const TArray<FVector>& Points)
+void AFlyingPawn::OnTargetActorChangedCallback(AActor* NewActor)
 {
-	UAStarPathfinding::DrawPath(GetWorld(), Points);
+	TargetActor = NewActor;
+	OnRep_TargetActor();
 }
 
-void AFlyingPawn::BeginPlay()
+void AFlyingPawn::OnTargetLocationChangedCallback(FVector NewLocation)
 {
-	Super::BeginPlay();
+	TargetLocation = NewLocation;
+	OnRep_TargetLocation();
+}
 
-	if (auto* FlyingAIController = Cast<AFlyingAIController>(GetController()); FlyingAIController && bFlyToTargetOnBeginPlay)
-	{
-		if (TargetActor)
-		{
-			FlyingAIController->FlyToActor(TargetActor);
-		}
-		else
-		{
-			FlyingAIController->FlyToLocation(TargetLocation);
-		}
-	}
+void AFlyingPawn::OnRep_TargetActor()
+{
+	OnTargetActorChanged.Broadcast(TargetActor);
+}
+
+void AFlyingPawn::OnRep_TargetLocation()
+{
+	OnTargetLocationChanged.Broadcast(TargetLocation);	
 }

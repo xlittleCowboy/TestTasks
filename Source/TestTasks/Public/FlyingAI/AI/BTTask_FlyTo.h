@@ -5,7 +5,9 @@
 #include "BTTask_FlyTo.generated.h"
 
 /**
- * 
+ * Fly To task node.
+ * Flies the AI pawn toward the specified Actor or Location blackboard entry using the A* pathfinding.
+ * AI Pawn should have PawnMovementComponent or any other component, derived from PawnMovementComponent.
  */
 UCLASS()
 class TESTTASKS_API UBTTask_FlyTo : public UBTTaskNode
