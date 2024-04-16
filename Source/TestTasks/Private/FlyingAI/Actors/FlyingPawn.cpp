@@ -11,24 +11,6 @@ AFlyingPawn::AFlyingPawn()
 	FloatingPawnMovement = CreateDefaultSubobject<UFloatingPawnMovement>("Floating Pawn Movement");
 }
 
-void AFlyingPawn::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-	
-	FlushPersistentDebugLines(GetWorld());
-	
-	if (bDrawDebugPath)
-	{
-		FVector EndLocation = TargetLocation;
-		if (TargetActor)
-		{
-			EndLocation = TargetActor->GetActorLocation();
-		}
-		
-		DrawDebugPath(UAStarPathfinding::GetPathPoints(GetWorld(), GetActorLocation(), EndLocation, ObstacleObjectTypes, PathGridSize));
-	}
-}
-
 void AFlyingPawn::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -42,18 +24,9 @@ void AFlyingPawn::Tick(float DeltaSeconds)
 	}
 }
 
-void AFlyingPawn::DrawDebugPath(const TArray<FVector>& Path) const
+void AFlyingPawn::OnPathPointsFound(const TArray<FVector>& Points)
 {
-	if (!GetWorld())
-	{
-		return;
-	}
-	
-	for (int32 i = 0; i < Path.Num() - 1; i++)
-	{
-		DrawDebugLine(GetWorld(),Path[i], Path[i + 1], FColor::Green,
-			false, std::numeric_limits<float>::max(), 0, 1.0f);
-	}
+	UAStarPathfinding::DrawPath(GetWorld(), Points);
 }
 
 void AFlyingPawn::BeginPlay()

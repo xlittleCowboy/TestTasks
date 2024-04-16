@@ -46,22 +46,9 @@ EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 		return EBTNodeResult::Failed;
 	}
 	
-	if (PathPoints.Num() <= 0 && !bDestinationReached)
+	if (PathPoints.Num() <= 0 && !bDestinationReached && !bSearchingPath)
 	{
 		UpdatePathPoints(OwnerComp);
-
-		if (PathPoints.Num() <= 0)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("AI Fly To: No path points."))
-			
-			FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
-			return EBTNodeResult::Failed;
-		}
-
-		TargetLocation = PathPoints[0];
-		EndLocation = PathPoints[PathPoints.Num() - 1];
-		
-		PathPoints.RemoveAt(0);
 	}
 
 	UpdateTargetLocation(AIController->GetPawn()->GetActorLocation());
@@ -93,23 +80,28 @@ void UBTTask_FlyTo::UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp)
 	const AAIController* AIController = OwnerComp.GetAIOwner();
 	
 	UObject* KeyValue = AIBlackboard->GetValue<UBlackboardKeyType_Object>(TargetActorBlackboardKey.SelectedKeyName);
-	AActor* TargetActor = Cast<AActor>(KeyValue);
+	const AActor* TargetActor = Cast<AActor>(KeyValue);
 	if (!TargetActor && !AIBlackboard->IsVectorValueSet(TargetLocationBlackboardKey.SelectedKeyName))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("AI Fly To: Target actor or target location is not set in the blackboard."))
 		return;
 	}
 
+	bSearchingPath = true;
+
+	FPathPointsDelegate PathPointsDelegate;
+	PathPointsDelegate.BindUFunction(this, "OnPathPointsFound");
+	
 	if (TargetActor)
 	{
-		PathPoints = UAStarPathfinding::GetPathPoints(AIController, AIController->GetPawn()->GetActorLocation(),
+		UAStarPathfinding::GetPathPoints(AIController, PathPointsDelegate, AIController->GetPawn()->GetActorLocation(),
 			TargetActor->GetActorLocation(), ObstacleObjectTypes, PathGridSize);
 	}
 	else
 	{
 		const FVector TargetEndLocation = AIBlackboard->GetValue<UBlackboardKeyType_Vector>(TargetLocationBlackboardKey.SelectedKeyName);
 
-		PathPoints = UAStarPathfinding::GetPathPoints(AIController, AIController->GetPawn()->GetActorLocation(),
+		UAStarPathfinding::GetPathPoints(AIController, PathPointsDelegate, AIController->GetPawn()->GetActorLocation(),
 	TargetEndLocation, ObstacleObjectTypes, PathGridSize);
 	}
 }
@@ -133,8 +125,26 @@ void UBTTask_FlyTo::UpdateTargetLocation(const FVector& OwnerLocation)
 	}
 }
 
+void UBTTask_FlyTo::OnPathPointsFound(const TArray<FVector>& Points)
+{
+	bSearchingPath = false;
+	
+	PathPoints = Points;
+
+	if (PathPoints.Num() <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AI Fly To: No path points."))
+		return;
+	}
+
+	TargetLocation = PathPoints[0];
+	EndLocation = PathPoints[PathPoints.Num() - 1];
+		
+	PathPoints.RemoveAt(0);
+}
+
 EBlackboardNotificationResult UBTTask_FlyTo::OnBlackboardValueChange(const UBlackboardComponent& Blackboard,
-	FBlackboard::FKey ChangedKeyID)
+                                                                     FBlackboard::FKey ChangedKeyID)
 {
 	const UBehaviorTreeComponent* BehaviorComp = Cast<UBehaviorTreeComponent>(Blackboard.GetBrainComponent());
 	if (!BehaviorComp)
@@ -161,7 +171,10 @@ EBlackboardNotificationResult UBTTask_FlyTo::OnBlackboardValueChange(const UBlac
 
 	if (bUpdateMove && BehaviorComp->GetAIOwner())
 	{
-		PathPoints = UAStarPathfinding::GetPathPoints(BehaviorComp->GetAIOwner(), BehaviorComp->GetAIOwner()->GetPawn()->GetActorLocation(),
+		FPathPointsDelegate PathPointsDelegate;
+		PathPointsDelegate.BindUFunction(this, "OnPathPointsFound");
+		
+		UAStarPathfinding::GetPathPoints(BehaviorComp->GetAIOwner(), PathPointsDelegate, BehaviorComp->GetAIOwner()->GetPawn()->GetActorLocation(),
 	TargetEndLocation, ObstacleObjectTypes, PathGridSize);
 
 		if (PathPoints.Num() > 0)

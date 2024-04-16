@@ -19,6 +19,11 @@ class TESTTASKS_API UBTTask_FlyTo : public UBTTaskNode
 	void UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp);
 	void UpdateTargetLocation(const FVector& OwnerLocation);
 
+	UFUNCTION()
+	void OnPathPointsFound(const TArray<FVector>& Points);
+
+	bool bSearchingPath = false;
+
 	FVector TargetLocation;
 	TArray<FVector> PathPoints;
 	

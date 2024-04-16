@@ -4,6 +4,8 @@
 #include "UObject/NoExportTypes.h"
 #include "AStarPathfinding.generated.h"
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FPathPointsDelegate, TArray<FVector>, PathPoints);
+
 USTRUCT(BlueprintType)
 struct FNavigationNode
 {
@@ -55,7 +57,7 @@ class TESTTASKS_API UAStarPathfinding : public UObject
 
 public:
 	UFUNCTION(BlueprintPure, Category="Pathfinding", meta = (WorldContext = "WorldContextObject"))
-	static TArray<FVector> GetPathPoints(const UObject* WorldContextObject, const FVector& FromLocation, const FVector& ToLocation, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize);
+	static void GetPathPoints(const UObject* WorldContextObject, FPathPointsDelegate Out, const FVector& FromLocation, const FVector& ToLocation, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize);
 
 	UFUNCTION(BlueprintPure, Category="Pathfinding", meta = (WorldContext = "WorldContextObject"))
 	static TArray<FNavigationNode> GetNeighbourNodes(const UObject* WorldContextObject, const FNavigationNode& Node, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize);
@@ -65,4 +67,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="Pathfinding", meta = (WorldContext = "WorldContextObject"))
 	static FVector GetValidEndLocation(const UObject* WorldContextObject, const FVector& EndLocation, const TArray<TEnumAsByte<EObjectTypeQuery>>& ObstacleObjectTypes, float GridSize);
+
+	UFUNCTION(BlueprintPure, Category="Pathfinding", meta = (WorldContext = "WorldContextObject"))
+	static void DrawPath(const UObject* WorldContextObject, const TArray<FVector>& PathPoints);
 };
