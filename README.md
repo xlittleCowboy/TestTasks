@@ -14,6 +14,8 @@ C++/BP
 
 New Behavior Tree node: FlyTo
 
-Optimized A* Pathfinding
+Optimized Async A* Pathfinding
+
+Fully Replicated
 
 Drone Control
