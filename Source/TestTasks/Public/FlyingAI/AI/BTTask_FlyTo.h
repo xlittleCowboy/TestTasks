@@ -14,43 +14,62 @@ class TESTTASKS_API UBTTask_FlyTo : public UBTTaskNode
 {
 	GENERATED_BODY()
 
+	UPROPERTY()
+	UBehaviorTreeComponent* OwnerBehaviorTreeComponentComponent = nullptr;
+	
+	bool bSearchingForPath = false;
+
+	FVector NextPathPointLocation;
+	TArray<FVector> PathPoints;
+	
+	FVector EndLocation;
+	bool bEndLocationReached = false;
+
+	FTimerHandle ObserveActorLocationTimerHandle;
+	void UpdatePathFromTargetActor();
+
 	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
 	void UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp);
-	void UpdateTargetLocation(const FVector& OwnerLocation);
+	void UpdateNextPathPointLocation(const FVector& OwnerLocation);
 
 	UFUNCTION()
 	void OnPathPointsFound(const TArray<FVector>& Points);
 
-	bool bSearchingPath = false;
-
-	FVector TargetLocation;
-	TArray<FVector> PathPoints;
-	
-	FVector EndLocation;
-	bool bDestinationReached = false;
-
 	EBlackboardNotificationResult OnBlackboardValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID);
 
 protected:
-	UPROPERTY(EditAnywhere, Category="Flying AI")
+	/** What radius around end point should be acceptable for us to stop moving? */
+	UPROPERTY(EditAnywhere, Category="Flying AI|Pathfinding")
 	float AcceptanceRadius = 5.0f;
 	
-	/** Grid size for path building. Should be > 10 */
-	UPROPERTY(EditAnywhere, Category="Flying AI", meta=(ClampMin=11.0f))
+	/** Grid size for path building. Should be > 10. Larger values - better performance. */
+	UPROPERTY(EditAnywhere, Category="Flying AI|Pathfinding", meta=(ClampMin=11.0f))
 	float PathGridSize = 100.0f;
 
-	UPROPERTY(EditAnywhere, Category="Flying AI")
+	/** Path consists of points. When we are moving to the point, what radius around it should be acceptable for us to move to the next point? */
+	UPROPERTY(EditAnywhere, Category="Flying AI|Pathfinding")
+	float ToleranceForPathPointsComparison = 100.0f;
+	
+	/** In which objects can't we fly? */
+	UPROPERTY(EditAnywhere, Category="Flying AI|Pathfinding")
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObstacleObjectTypes;
 
-	UPROPERTY(EditAnywhere, Category="Flying AI")
-	float ToleranceForPathPointsComparison = 100.0f;
+	/** Should we update path to TargetActor every ObserveTargetActorLocationFrequency seconds? */
+	UPROPERTY(EditAnywhere, Category="Flying AI|Observing")
+	bool bObserveTargetActorLocation = false;
 
+	/** If bObserveTargetActorLocation is true, then we update path to TargetActor every ObserveTargetActorLocationFrequency seconds. */
+	UPROPERTY(EditAnywhere, Category="Flying AI|Observing", meta=(EditCondition="bObserveTargetActorLocation", ClampMin=0.1f, UIMin=0.1f))
+	float ObserveTargetActorLocationFrequency = 2.0f;
+
+	/** Actor we should move to. If this is null, then we will move to TargetLocationBlackboardKey. */
 	UPROPERTY(EditAnywhere, Category="Blackboard")
 	FBlackboardKeySelector TargetActorBlackboardKey;
 
+	/** Location we should move to. We move to it only if TargetLocationBlackboardKey is null. */
 	UPROPERTY(EditAnywhere, Category="Blackboard")
 	FBlackboardKeySelector TargetLocationBlackboardKey;
 

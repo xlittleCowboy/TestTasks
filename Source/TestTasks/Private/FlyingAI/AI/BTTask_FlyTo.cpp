@@ -1,5 +1,6 @@
 #include "FlyingAI/AI/BTTask_FlyTo.h"
 #include "AIController.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
@@ -9,6 +10,13 @@
 UBTTask_FlyTo::UBTTask_FlyTo()
 {
 	NodeName = "Fly To";
+
+	ObstacleObjectTypes.AddUnique(ObjectTypeQuery1);
+	ObstacleObjectTypes.AddUnique(ObjectTypeQuery2);
+	ObstacleObjectTypes.AddUnique(ObjectTypeQuery3);
+	ObstacleObjectTypes.AddUnique(ObjectTypeQuery4);
+	ObstacleObjectTypes.AddUnique(ObjectTypeQuery5);
+	ObstacleObjectTypes.AddUnique(ObjectTypeQuery6);
 }
 
 void UBTTask_FlyTo::InitializeFromAsset(UBehaviorTree& Asset)
@@ -19,6 +27,12 @@ void UBTTask_FlyTo::InitializeFromAsset(UBehaviorTree& Asset)
 	{
 		TargetActorBlackboardKey.ResolveSelectedKey(*BBAsset);
 		TargetLocationBlackboardKey.ResolveSelectedKey(*BBAsset);
+
+		if (GetWorld() && bObserveTargetActorLocation)
+		{
+			GetWorld()->GetTimerManager().SetTimer(ObserveActorLocationTimerHandle, this,
+				&UBTTask_FlyTo::UpdatePathFromTargetActor, ObserveTargetActorLocationFrequency, true);
+		}
 	}
 	else
 	{
@@ -26,8 +40,28 @@ void UBTTask_FlyTo::InitializeFromAsset(UBehaviorTree& Asset)
 	}
 }
 
+void UBTTask_FlyTo::UpdatePathFromTargetActor()
+{
+	if (!OwnerBehaviorTreeComponentComponent || !OwnerBehaviorTreeComponentComponent->GetBlackboardComponent())
+	{
+		return;
+	}
+	
+	UObject* KeyValue = OwnerBehaviorTreeComponentComponent->GetBlackboardComponent()->GetValueAsObject(TargetActorBlackboardKey.SelectedKeyName);
+	if (const AActor* TargetActor = Cast<AActor>(KeyValue))
+	{
+		FPathPointsDelegate PathPointsDelegate;
+		PathPointsDelegate.BindUFunction(this, "OnPathPointsFound");
+		
+		UAStarPathfinding::GetPathPoints(TargetActor, PathPointsDelegate, TargetActor->GetActorLocation(),
+			TargetActor->GetActorLocation(), ObstacleObjectTypes, PathGridSize);
+	}
+}
+
 EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
+	OwnerBehaviorTreeComponentComponent = &OwnerComp;
+	
 	UBlackboardComponent* AIBlackboard = OwnerComp.GetBlackboardComponent();
 	const AAIController* AIController = OwnerComp.GetAIOwner();
 
@@ -46,13 +80,13 @@ EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 		return EBTNodeResult::Failed;
 	}
 	
-	if (PathPoints.Num() <= 0 && !bDestinationReached && !bSearchingPath)
+	if (PathPoints.Num() <= 0 && !bEndLocationReached && !bSearchingForPath)
 	{
 		UpdatePathPoints(OwnerComp);
 	}
 
-	UpdateTargetLocation(AIController->GetPawn()->GetActorLocation());
-	PawnMovementComponent->AddInputVector((TargetLocation - AIController->GetPawn()->GetActorLocation()).GetSafeNormal());
+	UpdateNextPathPointLocation(AIController->GetPawn()->GetActorLocation());
+	PawnMovementComponent->AddInputVector((NextPathPointLocation - AIController->GetPawn()->GetActorLocation()).GetSafeNormal());
 
 	if (bObserveBlackboardValue)
 	{
@@ -64,7 +98,7 @@ EBTNodeResult::Type UBTTask_FlyTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 			this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTTask_FlyTo::OnBlackboardValueChange));
 	}	
 	
-	if (bDestinationReached)
+	if (bEndLocationReached)
 	{
 		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
 		return EBTNodeResult::Succeeded;
@@ -79,6 +113,12 @@ void UBTTask_FlyTo::UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp)
 	const UBlackboardComponent* AIBlackboard = OwnerComp.GetBlackboardComponent();
 	const AAIController* AIController = OwnerComp.GetAIOwner();
 	
+	if (!AIController || !AIBlackboard)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AI Fly To: No controller or blackboard."))
+		return;
+	}
+	
 	UObject* KeyValue = AIBlackboard->GetValue<UBlackboardKeyType_Object>(TargetActorBlackboardKey.SelectedKeyName);
 	const AActor* TargetActor = Cast<AActor>(KeyValue);
 	if (!TargetActor && !AIBlackboard->IsVectorValueSet(TargetLocationBlackboardKey.SelectedKeyName))
@@ -87,7 +127,7 @@ void UBTTask_FlyTo::UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp)
 		return;
 	}
 
-	bSearchingPath = true;
+	bSearchingForPath = true;
 
 	FPathPointsDelegate PathPointsDelegate;
 	PathPointsDelegate.BindUFunction(this, "OnPathPointsFound");
@@ -106,28 +146,28 @@ void UBTTask_FlyTo::UpdatePathPoints(const UBehaviorTreeComponent& OwnerComp)
 	}
 }
 
-void UBTTask_FlyTo::UpdateTargetLocation(const FVector& OwnerLocation)
+void UBTTask_FlyTo::UpdateNextPathPointLocation(const FVector& OwnerLocation)
 {
 	if (PathPoints.Num() <= 0)
 	{
 		return;
 	}
 
-	if (OwnerLocation.Equals(TargetLocation, ToleranceForPathPointsComparison))
+	if (OwnerLocation.Equals(NextPathPointLocation, ToleranceForPathPointsComparison))
 	{
-		TargetLocation = PathPoints[0];
+		NextPathPointLocation = PathPoints[0];
 		PathPoints.RemoveAt(0);
 
 		if (PathPoints.Num() <= 0)
 		{
-			bDestinationReached = true;
+			bEndLocationReached = true;
 		}
 	}
 }
 
 void UBTTask_FlyTo::OnPathPointsFound(const TArray<FVector>& Points)
 {
-	bSearchingPath = false;
+	bSearchingForPath = false;
 	
 	PathPoints = Points;
 
@@ -137,7 +177,7 @@ void UBTTask_FlyTo::OnPathPointsFound(const TArray<FVector>& Points)
 		return;
 	}
 
-	TargetLocation = PathPoints[0];
+	NextPathPointLocation = PathPoints[0];
 	EndLocation = PathPoints[PathPoints.Num() - 1];
 		
 	PathPoints.RemoveAt(0);
@@ -159,12 +199,17 @@ EBlackboardNotificationResult UBTTask_FlyTo::OnBlackboardValueChange(const UBlac
 		UObject* KeyValue = Blackboard.GetValue<UBlackboardKeyType_Object>(TargetActorBlackboardKey.SelectedKeyName);
 		if (const AActor* TargetActor = Cast<AActor>(KeyValue))
 		{
+			GetWorld()->GetTimerManager().SetTimer(ObserveActorLocationTimerHandle, this,
+				&UBTTask_FlyTo::UpdatePathFromTargetActor, ObserveTargetActorLocationFrequency, true);
+			
 			TargetEndLocation = TargetActor->GetActorLocation();
 			bUpdateMove = FVector::DistSquared(EndLocation, TargetEndLocation) > FMath::Square(ObservedBlackboardValueTolerance);
 		}
 	}
 	if (ChangedKeyID == TargetLocationBlackboardKey.GetSelectedKeyID())
 	{
+		GetWorld()->GetTimerManager().ClearTimer(ObserveActorLocationTimerHandle);
+		
 		TargetEndLocation = Blackboard.GetValue<UBlackboardKeyType_Vector>(TargetLocationBlackboardKey.SelectedKeyName);
 		bUpdateMove = FVector::DistSquared(EndLocation, TargetEndLocation) > FMath::Square(ObservedBlackboardValueTolerance);
 	}
@@ -179,12 +224,12 @@ EBlackboardNotificationResult UBTTask_FlyTo::OnBlackboardValueChange(const UBlac
 
 		if (PathPoints.Num() > 0)
 		{
-			TargetLocation = PathPoints[0];
+			NextPathPointLocation = PathPoints[0];
 			EndLocation = TargetEndLocation;
 
 			PathPoints.RemoveAt(0);
 
-			bDestinationReached = false;
+			bEndLocationReached = false;
 		}
 	}
 	
