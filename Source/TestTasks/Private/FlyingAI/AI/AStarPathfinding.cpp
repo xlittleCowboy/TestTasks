@@ -1,3 +1,5 @@
+// Copyright littleCowboy. All Rights Reserved.
+
 #include "FlyingAI/AI/AStarPathfinding.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"

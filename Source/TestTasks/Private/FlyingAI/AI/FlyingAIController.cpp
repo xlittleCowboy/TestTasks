@@ -1,3 +1,5 @@
+// Copyright littleCowboy. All Rights Reserved.
+
 #include "FlyingAI/AI/FlyingAIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 

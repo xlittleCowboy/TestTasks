@@ -1,3 +1,5 @@
+// Copyright littleCowboy. All Rights Reserved.
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -17,7 +19,7 @@ class TESTTASKS_API AFlyingAIController : public AAIController
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
-	UBlackboardData* FlyingAIBlackboard = nullptr;
+	TObjectPtr<UBlackboardData> FlyingAIBlackboard = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
 	FName TargetActorBlackboardKeyName = "TargetActor";
@@ -26,7 +28,7 @@ protected:
 	FName TargetLocationBlackboardKeyName = "TargetLocation";
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying AI")
-	UBehaviorTree* FlyingAIBehaviorTree = nullptr;
+	TObjectPtr<UBehaviorTree> FlyingAIBehaviorTree = nullptr;
 
 public:
 	UFUNCTION(BlueprintCallable, Category="Flying AI")

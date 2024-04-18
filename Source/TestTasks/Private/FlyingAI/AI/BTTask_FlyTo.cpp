@@ -1,3 +1,5 @@
+// Copyright littleCowboy. All Rights Reserved.
+
 #include "FlyingAI/AI/BTTask_FlyTo.h"
 #include "AIController.h"
 #include "BehaviorTree/BehaviorTree.h"

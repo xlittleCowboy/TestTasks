@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Copyright littleCowboy. All Rights Reserved.
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "FlyingAI/AI/FlyingAIController.h"
@@ -14,7 +16,7 @@ class TESTTASKS_API AFlyingPawn : public APawn
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Components")
-	UFloatingPawnMovement* FloatingPawnMovement;
+	TObjectPtr<UFloatingPawnMovement> FloatingPawnMovement;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flying Pawn")
 	float RotationAlpha = 0.1f;
@@ -24,7 +26,7 @@ protected:
 
 	/** If TargetActor is not set, then pawn will fly to the TargetLocation. */
 	UPROPERTY(ReplicatedUsing="OnRep_TargetActor", EditInstanceOnly, BlueprintReadOnly, Category="Flying Pawn", meta=(EditCondition="bFlyToTargetOnBeginPlay", EditConditionHides="true"))
-	AActor* TargetActor = nullptr;
+	TObjectPtr<AActor> TargetActor = nullptr;
 
 	/** If TargetActor is not set, then pawn will fly to the TargetLocation. */
 	UPROPERTY(ReplicatedUsing="OnRep_TargetLocation", EditInstanceOnly, BlueprintReadOnly, Category="Flying Pawn", meta=(EditCondition="bFlyToTargetOnBeginPlay && TargetActor == nullptr", EditConditionHides="true"))

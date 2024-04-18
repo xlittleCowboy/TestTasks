@@ -1,4 +1,6 @@
-﻿#include "FlyingAI/Actors/FlyingPawn.h"
+﻿// Copyright littleCowboy. All Rights Reserved.
+
+#include "FlyingAI/Actors/FlyingPawn.h"
 #include "FlyingAI/AI/FlyingAIController.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "Kismet/KismetMathLibrary.h"
